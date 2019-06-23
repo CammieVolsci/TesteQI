@@ -5,28 +5,32 @@
 #include <string.h>
 #include <math.h>
 
-//dimensıes da tela
+//dimens√µes da tela
 #define LINHAS 12
 #define COLUNAS 12
+#define ROW 600
+#define COLUMN 800
 #define VERTICES_ARVORE 11
 
 //tamanho da tela
 const int SCREEN_WIDTH = 600;
 const int SCREEN_HEIGHT = 800;
+float z_buffer[ROW][COLUMN];
 
-//vari·veis globais
+//vari√°veis globais
 SDL_Window *janela = NULL;
 SDL_Surface *superficie_tela = NULL;
 SDL_Renderer *renderizacao = NULL;
 int pontuacao = 0;
 
-//criando matrizes para as transformaÁıes
+//criando matrizes para as transforma√ß√µes
 typedef double Matriz[3][3];
 typedef double Matriz_vetor[3];
+
 typedef double Matriz4[4][4];
 typedef double Matriz4_vetor[4];
 
-//estrutura de dados de vÈrtices
+//estrutura de dados de v√©rtices
 typedef struct vertice Vertice;
 struct vertice
 {
@@ -53,10 +57,10 @@ struct vetor2D
 
 int criar_tela();       //inicia o SDL e cria a tela
 void fechar_tela();     //fecha o SDL e fecha a tela
-void teste_qi();        //funÁ„o principal do programa
+void teste_qi();        //fun√ß√£o principal do programa
 void desenhar_texto(const char* msg);
-void desenhar_linha(Vertice v1, Vertice v2); //funÁ„o que desenha uma linha
-void desenhar_poligono(int total_poligonos, int max_vertices, Vertice v[][max_vertices]); //desenha >todos< os polÌgonos
+void desenhar_linha(Vertice v1, Vertice v2); //fun√ß√£o que desenha uma linha
+void desenhar_poligono(int total_poligonos, int max_vertices, Vertice v[][max_vertices]); //desenha >todos< os pol√≠gonos
 void criar_matriz_identidade(Matriz m);                                 //cria a matriz identidade para usar depois
 void criar_matriz(int n, int total_poligonos, Vertice v[][COLUNAS]);    //criando as matrizes para cada fase
 void multiplicar_matrizes(Matriz m1, Matriz_vetor m2);                  //multiplica matriz 3x3 por uma matriz coluna
@@ -73,28 +77,35 @@ void fase5(int n, Vertice v[][n]);
 Vetor2D max_vertice(int lados, Vertice v[]);
 Vetor2D min_vertice(int lados, Vertice v[]);
 
-// funÁıes usadas para pintar poligono
+// fun√ß√µes usadas para pintar poligono
 int max(int x1, int x2, int x3);
 int min(int x1, int x2, int x3);
 int equacao_reta(Vetor2D v1, Vetor2D v2, int x, int y);
 void pintar_poligono(Vertice v1, Vertice v2, Vertice v3);
 
-// funÁıes para desenhar isomÈtrico
+// fun√ß√µes para desenhar isom√©trico
 void criar_matriz_identidade4(Matriz4 m);
 void multiplicar_matrizes4(Matriz4 m1, Matriz4 m2);
 void rotacao_matriz(Vertice *v);
 void criar_arvore(Face faces[]);
+void criar_arvore_colorida(Face faces[]);
 void desenhar_arvore(Face faces[]);
+int equacao_reta_arvore(Vertice v1, Vertice v2, int x, int y);
+float calcular_z_depth(Vertice v1, Vertice v2, Vertice v3, int x, int y);
+float area_triangulo(Vertice v1, Vertice v2, Vertice v3);
+void arvore_loop(Vertice v1, Vertice v2, Vertice v3, SDL_Color cor);
+void pintar_arvore(Face faces[]);
+void desenhar_linha_arvore(Vertice v1, Vertice v2, SDL_Color cor);
 
 int main(int argc, char *args[])
 {
     setlocale(LC_ALL, "Portuguese");
-    printf("\nTrabalho 1 de implementaÁ„o de ComputaÁ„o Gr·fica -\nAluna: Camilla Andrade Pereira\nTeste de QI -\n\n");
+    printf("\nTrabalho 1 de implementa√ß√£o de Computa√ß√£o Gr√°fica -\nAluna: Camilla Andrade Pereira\nTeste de QI -\n\n");
     printf("\nAperte as teclas (em ordem das figuras)\n'a' \t 'b'\n'c' \t 'd'\npara responder.\n\n");
-    printf("\nO teste tem 5 perguntas, cada resposta certa vale 100 pontos.\nTotal m·ximo de 500 pontos.\n");
+    printf("\nO teste tem 5 perguntas, cada resposta certa vale 100 pontos.\nTotal m√°ximo de 500 pontos.\n");
     teste_qi();
 
-    printf("\n\nPontuaÁ„o no teste de QI: %d pontos.\n", pontuacao);
+    printf("\n\nPontua√ß√£o no teste de QI: %d pontos.\n", pontuacao);
     getchar();
 
     return 0;
@@ -102,26 +113,30 @@ int main(int argc, char *args[])
 
 void teste_qi()
 {
+    // inicializa Z-Buffer com maxima profundidade
+    for(int i=0;i<ROW; i++)
+        for(int j=0;j<COLUMN;j++)
+            z_buffer[i][j] = 10;
+
     Vertice v[LINHAS][COLUNAS] = {0};
     Face arvore[2];
 
     int fase = 0;
     int ok = 1;
 
-    if(!criar_tela())       //comeÁa o SDL e cria a tela
+    if(!criar_tela())       //come√ßa o SDL e cria a tela
         printf("\n\nFalha a inicializar!\n");
     else
     {
         int sair = 0;       //flag principal do loop
         SDL_Event evento;   //event handler
-        while(!sair)                            //enquanto a aplicaÁ„o estiver rodando
+        while(!sair)                            //enquanto a aplica√ß√£o estiver rodando
         {
 
             while(SDL_PollEvent(&evento)!=0)    //lida com eventos na fila
             {
-                if(evento.type==SDL_QUIT)       //usu·rio pede para sair
+                if(evento.type==SDL_QUIT)       //usu√°rio pede para sair
                     sair = 1;
-
                 else if(evento.type==SDL_KEYDOWN)
                 {
                         switch(evento.key.keysym.sym)
@@ -155,16 +170,16 @@ void teste_qi()
                 SDL_RenderClear(renderizacao);
                 criar_arvore(arvore);
 
-                for (int i = 0; i < 2; i++)
+                for (int i=0;i<2;i++)
                 {
-                    for (int j = 0; j < VERTICES_ARVORE; j++)
+                    for (int j=0;j<VERTICES_ARVORE;j++)
                     {
                         arvore[i].v[j].x *= 5;
                         arvore[i].v[j].y *= 5;
                         arvore[i].v[j].z *= 5;
 
-                        arvore[i].v[j].x += 500;
-                        arvore[i].v[j].y += 150;
+                        arvore[i].v[j].x += 150;
+                        arvore[i].v[j].y += 300;
 
                         rotacao_matriz(&arvore[i].v[j]);
                     }
@@ -181,7 +196,6 @@ void teste_qi()
                 fase1(COLUNAS, v);
                 ok = 0;
             }
-
             else if(fase==2 && ok==1)
             {
                 SDL_SetRenderDrawColor(renderizacao,0xFF,0xFF,0xFF,0x00);
@@ -190,7 +204,6 @@ void teste_qi()
                 fase2(COLUNAS, v);
                 ok = 0;
             }
-
             else if(fase==3 && ok==1)
             {
                 SDL_SetRenderDrawColor(renderizacao,0xFF,0xFF,0xFF,0x00);
@@ -199,7 +212,6 @@ void teste_qi()
                 fase3(COLUNAS, v);
                 ok = 0;
             }
-
             else if(fase==4 && ok==1)
             {
                 SDL_SetRenderDrawColor(renderizacao,0xFF,0xFF,0xFF,0x00);
@@ -208,7 +220,6 @@ void teste_qi()
                 fase4(COLUNAS, v);
                 ok = 0;
             }
-
             else if(fase==5 && ok==1)
             {
                 SDL_SetRenderDrawColor(renderizacao,0xFF,0xFF,0xFF,0x00);
@@ -217,15 +228,35 @@ void teste_qi()
                 fase5(COLUNAS, v);
                 ok = 0;
             }
-            else if(fase==6)
+            else if(fase==6 && ok==1)
+            {
+                SDL_SetRenderDrawColor(renderizacao, 0xFF, 0xFF, 0xFF, 0xFF);
+                SDL_RenderClear(renderizacao);
+                criar_arvore_colorida(arvore);
+
+                for (int i = 0; i < 2; i++)
+                {
+                    for (int j = 0; j < VERTICES_ARVORE; j++)
+                    {
+                        rotacao_matriz(&arvore[i].v[j]);
+                    }
+                }
+                pintar_arvore(arvore);
+
+                ok == 0;
+            }
+            else if(fase==7)
                 sair = 1;
 
-            if (fase == 0)
+            if (fase == 0 || fase == 6 || fase == 7)
+            {
                 desenhar_arvore(arvore);
+                pintar_arvore(arvore);
+            }
             else
                 desenhar_poligono(LINHAS, COLUNAS, v);
-            SDL_RenderPresent(renderizacao);
 
+            SDL_RenderPresent(renderizacao);
         }
     }
     fechar_tela();
@@ -243,18 +274,17 @@ void criar_matriz(int n, int total_poligonos, Vertice v[][COLUNAS])
         arq = fopen("fase1.txt","r");
         if(arq==NULL)
         {
-            printf("\nErro ao abrir o arquivo dos polÌgonos.\n");
+            printf("\nErro ao abrir o arquivo dos pol√≠gonos.\n");
             exit(1);
         }
-        //lendo os polÌgonos de um arquivo e colocando direto na matriz
-        //cada linha È um polÌgono e cada coluna È um vÈrtice
+        //lendo os pol√≠gonos de um arquivo e colocando direto na matriz
+        //cada linha √© um pol√≠gono e cada coluna √© um v√©rtice
         while((fscanf(arq,"%d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d;\n",
                       &v[i][0].x, &v[i][0].y, &v[i][1].x, &v[i][1].y,  &v[i][2].x,  &v[i][2].y,  &v[i][3].x,  &v[i][3].y,
                       &v[i][4].x, &v[i][4].y, &v[i][5].x, &v[i][5].y,  &v[i][6].x,  &v[i][6].y,  &v[i][7].x,  &v[i][7].y,
                       &v[i][8].x, &v[i][8].y, &v[i][9].x, &v[i][9].y,  &v[i][10].x, &v[i][10].y, &v[i][11].x, &v[i][11].y)!=EOF))
         {
             i++;
-
         }
     }
 
@@ -263,18 +293,17 @@ void criar_matriz(int n, int total_poligonos, Vertice v[][COLUNAS])
         arq = fopen("fase2.txt","r");
         if(arq==NULL)
         {
-            printf("\nErro ao abrir o arquivo dos polÌgonos.\n");
+            printf("\nErro ao abrir o arquivo dos pol√≠gonos.\n");
             exit(1);
         }
-        //lendo os polÌgonos de um arquivo e colocando direto na matriz
-        //cada linha È um polÌgono e cada coluna È um vÈrtice
+        //lendo os pol√≠gonos de um arquivo e colocando direto na matriz
+        //cada linha √© um pol√≠gono e cada coluna √© um v√©rtice
         while((fscanf(arq,"%d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d;\n",
                       &v[i][0].x, &v[i][0].y, &v[i][1].x, &v[i][1].y,  &v[i][2].x,  &v[i][2].y,  &v[i][3].x,  &v[i][3].y,
                       &v[i][4].x, &v[i][4].y, &v[i][5].x, &v[i][5].y,  &v[i][6].x,  &v[i][6].y,  &v[i][7].x,  &v[i][7].y,
                       &v[i][8].x, &v[i][8].y, &v[i][9].x, &v[i][9].y,  &v[i][10].x, &v[i][10].y, &v[i][11].x, &v[i][11].y)!=EOF))
         {
             i++;
-
         }
     }
 
@@ -283,18 +312,17 @@ void criar_matriz(int n, int total_poligonos, Vertice v[][COLUNAS])
         arq = fopen("fase3.txt","r");
         if(arq==NULL)
         {
-            printf("\nErro ao abrir o arquivo dos polÌgonos.\n");
+            printf("\nErro ao abrir o arquivo dos pol√≠gonos.\n");
             exit(1);
         }
-        //lendo os polÌgonos de um arquivo e colocando direto na matriz
-        //cada linha È um polÌgono e cada coluna È um vÈrtice
+        //lendo os pol√≠gonos de um arquivo e colocando direto na matriz
+        //cada linha √© um pol√≠gono e cada coluna √© um v√©rtice
         while((fscanf(arq,"%d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d;\n",
                       &v[i][0].x, &v[i][0].y, &v[i][1].x, &v[i][1].y,  &v[i][2].x,  &v[i][2].y,  &v[i][3].x,  &v[i][3].y,
                       &v[i][4].x, &v[i][4].y, &v[i][5].x, &v[i][5].y,  &v[i][6].x,  &v[i][6].y,  &v[i][7].x,  &v[i][7].y,
                       &v[i][8].x, &v[i][8].y, &v[i][9].x, &v[i][9].y,  &v[i][10].x, &v[i][10].y, &v[i][11].x, &v[i][11].y)!=EOF))
         {
             i++;
-
         }
     }
 
@@ -303,18 +331,17 @@ void criar_matriz(int n, int total_poligonos, Vertice v[][COLUNAS])
         arq = fopen("fase4.txt","r");
         if(arq==NULL)
         {
-            printf("\nErro ao abrir o arquivo dos polÌgonos.\n");
+            printf("\nErro ao abrir o arquivo dos pol√≠gonos.\n");
             exit(1);
         }
-        //lendo os polÌgonos de um arquivo e colocando direto na matriz
-        //cada linha È um polÌgono e cada coluna È um vÈrtice
+        //lendo os pol√≠gonos de um arquivo e colocando direto na matriz
+        //cada linha √© um pol√≠gono e cada coluna √© um v√©rtice
         while((fscanf(arq,"%d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d;\n",
                       &v[i][0].x, &v[i][0].y, &v[i][1].x, &v[i][1].y,  &v[i][2].x,  &v[i][2].y,  &v[i][3].x,  &v[i][3].y,
                       &v[i][4].x, &v[i][4].y, &v[i][5].x, &v[i][5].y,  &v[i][6].x,  &v[i][6].y,  &v[i][7].x,  &v[i][7].y,
                       &v[i][8].x, &v[i][8].y, &v[i][9].x, &v[i][9].y,  &v[i][10].x, &v[i][10].y, &v[i][11].x, &v[i][11].y)!=EOF))
         {
             i++;
-
         }
     }
 
@@ -323,18 +350,17 @@ void criar_matriz(int n, int total_poligonos, Vertice v[][COLUNAS])
         arq = fopen("fase5.txt","r");
         if(arq==NULL)
         {
-            printf("\nErro ao abrir o arquivo dos polÌgonos.\n");
+            printf("\nErro ao abrir o arquivo dos pol√≠gonos.\n");
             exit(1);
         }
-        //lendo os polÌgonos de um arquivo e colocando direto na matriz
-        //cada linha È um polÌgono e cada coluna È um vÈrtice
+        //lendo os pol√≠gonos de um arquivo e colocando direto na matriz
+        //cada linha √© um pol√≠gono e cada coluna √© um v√©rtice
         while((fscanf(arq,"%d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d; %d %d;\n",
                       &v[i][0].x, &v[i][0].y, &v[i][1].x, &v[i][1].y,  &v[i][2].x,  &v[i][2].y,  &v[i][3].x,  &v[i][3].y,
                       &v[i][4].x, &v[i][4].y, &v[i][5].x, &v[i][5].y,  &v[i][6].x,  &v[i][6].y,  &v[i][7].x,  &v[i][7].y,
                       &v[i][8].x, &v[i][8].y, &v[i][9].x, &v[i][9].y,  &v[i][10].x, &v[i][10].y, &v[i][11].x, &v[i][11].y)!=EOF))
         {
             i++;
-
         }
     }
 
@@ -351,10 +377,9 @@ int criar_tela()
 
     if(SDL_Init(SDL_INIT_VIDEO)<0) //inicializa o SDL e testa se funciona
     {
-        printf("\n\nO SDL n„o pode inicializar! SDL_ERROR: %s\n", SDL_GetError());
+        printf("\n\nO SDL n√£o pode inicializar! SDL_ERROR: %s\n", SDL_GetError());
         funciona = 0;
     }
-
     else
     {
         //cria a janela
@@ -362,33 +387,23 @@ int criar_tela()
 
         if(janela==NULL)
         {
-            printf("\n\nA janela n„o pode ser criada! SLD_ERROR: %s\n", SDL_GetError());
+            printf("\n\nA janela n√£o pode ser criada! SLD_ERROR: %s\n", SDL_GetError());
             funciona = 0;
         }
-
-        else //pega a superfÌcie da tela
+        else //pega a superf√≠cie da tela
         {
             renderizacao = SDL_CreateRenderer(janela,-1,SDL_RENDERER_ACCELERATED); //cria renderizacao para janela
+
             if(renderizacao==NULL )
 			{
-				printf("\n\nN„o pode ser renderizado! SDL Error: %s\n",SDL_GetError());
+				printf("\n\nN√£o pode ser renderizado! SDL Error: %s\n",SDL_GetError());
 				funciona = 0;
 			}
-
 			else
             {
-               /* if(TTF_Init() == -1)
-                {
-                    printf("\n\nN„o pode ser iniciado as fontes! SDL_ttf Error: %s\n", TTF_GetError() );
-                    funciona = 0;
-                }
-
-                else
-                {*/
-                    //Initialize renderer color
-                    SDL_SetRenderDrawColor(renderizacao, 0xFF, 0xFF, 0xFF, 0xFF );
-                    superficie_tela = SDL_GetWindowSurface(janela);
-                //}
+                //Initialize renderer color
+                SDL_SetRenderDrawColor(renderizacao, 0xFF, 0xFF, 0xFF, 0xFF );
+                superficie_tela = SDL_GetWindowSurface(janela);
             }
         }
     }
@@ -415,20 +430,20 @@ void desenhar_linha(Vertice v1, Vertice v2)
 
 void desenhar_poligono(int total_poligonos, int max_vertices, Vertice v[][max_vertices])
 {
-    //o total_poligonos s„o as linhas da matriz e max_vertices s„o as colunas
+    //o total_poligonos s√£o as linhas da matriz e max_vertices s√£o as colunas
 
     for(int i=0;i<total_poligonos;i++)
     {
         for(int j=0;j<max_vertices;j++)
         {
-            if((j+1<max_vertices) && (j!=0) && (v[i][j+1].x==0) && (v[i][j+1].y==0)) //checo se n„o estou na ˙ltima coluna de vÈrtices e se n„o È o primeiro vÈrtice
-            {                                                               //e se n„o È os zeros extras no arquivo da matriz
+            if((j+1<max_vertices) && (j!=0) && (v[i][j+1].x==0) && (v[i][j+1].y==0)) //checo se n√£o estou na √∫ltima coluna de v√©rtices e se n√£o √© o primeiro v√©rtice
+            {                                                               //e se n√£o √© os zeros extras no arquivo da matriz
                 desenhar_linha(v[i][j],v[i][0]);
                 break;
             }
-            else if(j+1==max_vertices)                       //desenha a linha entre o ˙ltimo vÈrtice e o primeiro vÈrtice
+            else if(j+1==max_vertices)                       //desenha a linha entre o √∫ltimo v√©rtice e o primeiro v√©rtice
                 desenhar_linha(v[i][j],v[i][0]);
-            else                                    //desenha a linha entre dois vÈrtices
+            else                                    //desenha a linha entre dois v√©rtices
                 desenhar_linha(v[i][j],v[i][j+1]);
         }
     }
@@ -436,7 +451,7 @@ void desenhar_poligono(int total_poligonos, int max_vertices, Vertice v[][max_ve
 
 void criar_matriz_identidade(Matriz m)
 {
-    //crio a matriz identidade para servir de base para as matrizes de transformaÁıes
+    //crio a matriz identidade para servir de base para as matrizes de transforma√ß√µes
     for(int i=0;i<3;i++)
     {
         for(int j=0;j<3;j++)
@@ -451,7 +466,7 @@ void criar_matriz_identidade(Matriz m)
 
 void multiplicar_matrizes(Matriz m1, Matriz_vetor m2)
 {
-    //funÁ„o para multiplicar a matriz (de transformaÁ„o) pela matriz coluna dos vÈrtices do polÌgono
+    //fun√ß√£o para multiplicar a matriz (de transforma√ß√£o) pela matriz coluna dos v√©rtices do pol√≠gono
     Matriz_vetor temp;
 
     for(int i=0;i<3;i++)
@@ -467,7 +482,7 @@ void translacao_homogenea(int lados, Vertice v[], Vetor2D vet)
     Matriz m;
     criar_matriz_identidade(m);
 
-    //aqui coloco os valores do vetor de translaÁ„o na matriz
+    //aqui coloco os valores do vetor de transla√ß√£o na matriz
     m[0][2] = vet.x;
     m[1][2] = vet.y;
 
@@ -475,11 +490,11 @@ void translacao_homogenea(int lados, Vertice v[], Vetor2D vet)
     {
         Matriz_vetor vet2;
 
-        if(i<(lados-1) && (i!=0))                   //para n„o transladar os vertices 00 dentro do vetor de vÈrtices e criar vÈrtices novos
+        if(i<(lados-1) && (i!=0))                   //para n√£o transladar os vertices 00 dentro do vetor de v√©rtices e criar v√©rtices novos
              if((v[i].x==0) && (v[i].y==0) && (v[i+1].x==0) && (v[i+1].y==0))
                 break;
 
-        if((i+1)>=lados  && (v[i].x==0) && (v[i].y==0)) //porque os hex·gonos e bandeirinhas n„o funcionaram
+        if((i+1)>=lados  && (v[i].x==0) && (v[i].y==0)) //porque os hex√°gonos e bandeirinhas n√£o funcionaram
             continue;
 
         vet2[0] = v[i].x;
@@ -500,15 +515,15 @@ void reflexao_homogenea(int lados, Vertice v[], Vetor2D vet)
     Vetor2D v2max, v2min, v2centro;
     criar_matriz_identidade(m);
 
-    //aqui coloco os valores de reflex„o (-1 ou 1) na matriz
+    //aqui coloco os valores de reflex√£o (-1 ou 1) na matriz
     m[0][0] = vet.x;
     m[1][1] = vet.y;
 
     v2max = max_vertice(lados, v);
     v2min = min_vertice(lados, v);
 
-    //defininindo o ponto mÈdio ("centro de massa") do quadrado ao redor do polÌgono
-    //deixando negativo para traze-los a posiÁ„o (0,0)
+    //defininindo o ponto m√©dio ("centro de massa") do quadrado ao redor do pol√≠gono
+    //deixando negativo para traze-los a posi√ß√£o (0,0)
     v2centro.x = -(v2max.x + v2min.x)/2;
     v2centro.y = -(v2max.y + v2min.y)/2;
     v2centro.z = 1;
@@ -534,7 +549,7 @@ void reflexao_homogenea(int lados, Vertice v[], Vetor2D vet)
     v2centro.x *= -1;
     v2centro.y *= -1;
 
-    //translado de volto a posiÁ„o original
+    //translado de volto a posi√ß√£o original
     translacao_centro(lados, v, v2centro);
 }
 
@@ -551,14 +566,14 @@ void escala_homogenea(int lados, Vertice v[], Matriz_vetor vet)
     {
         Matriz_vetor vet2;
 
-        //passo todos os valores de cada vÈrtice para a matriz coluna que vai multiplicar pela matriz transformaÁ„o
+        //passo todos os valores de cada v√©rtice para a matriz coluna que vai multiplicar pela matriz transforma√ß√£o
         vet2[0] = v[i].x;
         vet2[1] = v[i].y;
         vet2[2] = v[i].z;
 
         multiplicar_matrizes(m,vet2);
 
-        //aqui coloco os valores resultado de volta nos vÈrtices
+        //aqui coloco os valores resultado de volta nos v√©rtices
         v[i].x = vet2[0];
         v[i].y = vet2[1];
         v[i].z = vet2[2];
@@ -572,7 +587,7 @@ void rotacao_homogenea(int lados, Vertice v[], double t)
     Vetor2D v2max, v2min, v2centro;
     criar_matriz_identidade(m);
 
-    //aqui efetivamente coloco a matriz de rotaÁ„o na matriz identidade que tinha feito anteriormente
+    //aqui efetivamente coloco a matriz de rota√ß√£o na matriz identidade que tinha feito anteriormente
     //colocando os valores de sen e cos nos lugares certps
     m[0][0] = cos(t);
     m[0][1] = sin(t);
@@ -625,6 +640,7 @@ Vetor2D  max_vertice(int lados, Vertice v[])
     {
         if(v[i].x >= max.x)
             max.x = v[i].x;
+
         if(v[i].y >= max.y)
             max.y = v[i].y;
     }
@@ -641,8 +657,10 @@ Vetor2D min_vertice(int lados, Vertice v[])
     {
         if(v[i].x == 0 && v[i].y == 0 && i!=0)
             break;
+
         if(v[i].x <= min.x)
             min.x = v[i].x;
+
         if(v[i].y <= min.y)
             min.y = v[i].y;
     }
@@ -665,7 +683,7 @@ void fase1(int n, Vertice v[][n])
         translacao_homogenea(COLUNAS,v[i],vet);
     }
 
-    //fazendo todas as reflexıes da fase
+    //fazendo todas as reflex√µes da fase
     vet.x = 1;
     vet.y = -1;
 
@@ -682,14 +700,14 @@ void fase1(int n, Vertice v[][n])
     rotacao_homogenea(COLUNAS,v[3],grau_rad);
     rotacao_homogenea(COLUNAS,v[6],grau_rad);
 
-    //fazendo as rotaÁıes
-    grau_rad = -M_PI_2;
+    //fazendo as rota√ß√µes
+    grau_rad =-M_PI_2;
 
     rotacao_homogenea(COLUNAS,v[4],grau_rad);
     rotacao_homogenea(COLUNAS,v[5],grau_rad);
     rotacao_homogenea(COLUNAS,v[10],grau_rad);
 
-    //fazendo rotaÁ„o da bandeirinha letra c
+    //fazendo rota√ß√£o da bandeirinha letra c
     grau_rad = M_PI * 0.75;
 
     rotacao_homogenea(COLUNAS,v[9],grau_rad);
@@ -837,9 +855,11 @@ void fase4(int n, Vertice v[][n])
         translacao_homogenea(COLUNAS, v[i], vet);
     }
 
-    for(int i=0; i<LINHAS; i++) {
-        for(int j=0; j<4; j++) {
-            if(j >= 2)
+    for(int i=0;i<LINHAS;i++)
+    {
+        for(int j=0;j<4;j++)
+        {
+            if(j>=2)
             {
                 if(i==0 || i==4 || i==8 || i==9)
                     SDL_SetRenderDrawColor(renderizacao, 0xFF, 0x00, 0x00, 0xFF);
@@ -853,8 +873,10 @@ void fase4(int n, Vertice v[][n])
         }
     }
 
-    for(int i=0; i<LINHAS; i++) {
-        for(int j=0; j<4; j++) {
+    for(int i=0; i<LINHAS; i++)
+    {
+        for(int j=0; j<4; j++)
+        {
             if(j <= 1)
             {
                 if(i==1 || i==5 || i==6 || i==11)
@@ -937,15 +959,18 @@ void fase5(int n, Vertice v[][n])
     escala_homogenea(COLUNAS,v[11],m_vet);
     translacao_homogenea(COLUNAS,v[11],vet);
 
-    for(int i = 0; i < LINHAS; i++) {
-        for(int j = 1; j < COLUNAS; j++) {
-        if(i==0 || i==4 || i==8)
-            SDL_SetRenderDrawColor(renderizacao, 0xFF, 0x00, 0x00, 0xFF);
-        else if(i==1 || i==5 || i==6 || i==9)
-            SDL_SetRenderDrawColor(renderizacao, 0x00, 0xFF, 0x00, 0xFF);
-        else
-            SDL_SetRenderDrawColor(renderizacao, 0x00, 0x00, 0xFF, 0xFF);
-        pintar_poligono(v[i][0], v[i][j], v[i][j+1]);
+    for(int i = 0; i < LINHAS; i++)
+    {
+        for(int j = 1; j < COLUNAS; j++)
+        {
+            if(i==0 || i==4 || i==8)
+                SDL_SetRenderDrawColor(renderizacao, 0xFF, 0x00, 0x00, 0xFF);
+            else if(i==1 || i==5 || i==6 || i==9)
+                SDL_SetRenderDrawColor(renderizacao, 0x00, 0xFF, 0x00, 0xFF);
+            else
+                SDL_SetRenderDrawColor(renderizacao, 0x00, 0x00, 0xFF, 0xFF);
+
+            pintar_poligono(v[i][0], v[i][j], v[i][j+1]);
         }
     }
 }
@@ -954,7 +979,7 @@ void pintar_poligono(Vertice v1, Vertice v2, Vertice v3)
 {
     Vetor2D vet1, vet2, vet3;
 
-    //cria os 3 vetores baseando nos valores dos vÈrtices do polÌgono
+    //cria os 3 vetores baseando nos valores dos v√©rtices do pol√≠gono
     vet1.x = v1.x;
     vet1.y = v1.y;
     vet2.x = v2.x;
@@ -964,8 +989,8 @@ void pintar_poligono(Vertice v1, Vertice v2, Vertice v3)
 
     if((vet2.x!=0) && (vet2.y!=0) && (vet3.x!=0) && (vet3.y!=0))
     {
-        //cria um "ret‚ngulo" que limita o polÌgono, tanto no x quanto no y
-        //assim, no loop, o i e j sÛ precisam andar dentro desse "rent‚ngulo" e n„o por toda a janela gr·fica
+        //cria um "ret√¢ngulo" que limita o pol√≠gono, tanto no x quanto no y
+        //assim, no loop, o i e j s√≥ precisam andar dentro desse "rent√¢ngulo" e n√£o por toda a janela gr√°fica
         int xmin = min(v1.x,v2.x,v3.x);
         int xmax = max(v1.x,v2.x,v3.x);
 
@@ -976,10 +1001,10 @@ void pintar_poligono(Vertice v1, Vertice v2, Vertice v3)
         {
             for(int j=ymin;j<=ymax;j+= 1)
             {
-                  //o if checa para ver se o ponto (i,j) est· ou n„o dentro do polÌgono
-                  //se ele estiver, ent„o para as trÍs equaÁıes do tri‚ngulo formado por 2 lados do polÌgono
-                  //+ 1 lado que È formado por ligar um vertice fixo(o v[0] de cada poligono) com o ˙ltimo vertice usado no argumento.
-                  //O produto_vetorial deve retornar <= 0, pois os vertices est„o indo numa ordem anti-horaria
+                  //o if checa para ver se o ponto (i,j) est√° ou n√£o dentro do pol√≠gono
+                  //se ele estiver, ent√£o para as tr√™s equa√ß√µes do tri√¢ngulo formado por 2 lados do pol√≠gono
+                  //+ 1 lado que √© formado por ligar um vertice fixo(o v[0] de cada poligono) com o √∫ltimo vertice usado no argumento.
+                  //O produto_vetorial deve retornar <= 0, pois os vertices est√£o indo numa ordem anti-horaria
                     if(equacao_reta(vet1,vet2,i,j) <= 0 && equacao_reta(vet2,vet3,i,j) <= 0
                     && equacao_reta(vet3,vet1, i,j) <= 0)
                         SDL_RenderDrawPoint(renderizacao, i, j);
@@ -990,6 +1015,7 @@ void pintar_poligono(Vertice v1, Vertice v2, Vertice v3)
 
 int max(int x1, int x2, int x3)
 {
+
     if((x1>=x2) && (x1>=x3))
         return x1;
     else if((x2>=x3) && (x2>=x1))
@@ -1000,6 +1026,7 @@ int max(int x1, int x2, int x3)
 
 int min(int x1, int x2, int x3)
 {
+
     if((x1<=x2) && (x1<=x3))
         return x1;
     else if((x2<=x3) && (x2<=x1))
@@ -1010,8 +1037,8 @@ int min(int x1, int x2, int x3)
 
 int equacao_reta(Vetor2D v1, Vetor2D v2, int x, int y)
 {
-    //o "produto vetorial" de R2 È usado para equaÁ„o da reta que liga dois vÈrtices
-    //de um lado do poligono, È "basicamente" a equaÁ„o de um dos lados do poligono
+    //o "produto vetorial" de R2 √© usado para equa√ß√£o da reta que liga dois v√©rtices
+    //de um lado do poligono, √© "basicamente" a equa√ß√£o de um dos lados do poligono
     int A = v1.y - v2.y;
     int B = v2.x - v1.x;
     int C = v1.x*v2.y - v1.y*v2.x;
@@ -1021,25 +1048,29 @@ int equacao_reta(Vetor2D v1, Vetor2D v2, int x, int y)
 
 void criar_matriz_identidade4(Matriz4 m)
 {
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
+    for(int i=0;i<4;i++)
+    {
+        for(int j=0;j<4;j++)
         {
-            if (i == j)
+            if (i==j)
                 m[i][j] = 1;
             else
                 m[i][j] = 0;
         }
+    }
+
 }
 
 void multiplicar_matrizes4(Matriz4 m1, Matriz4 m2)
 {
     Matriz4 temp;
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
+
+    for(int i=0;i<4;i++)
+        for(int j=0;j<4;j++)
             temp[i][j] = m1[i][0]*m2[0][j] + m1[i][1]*m2[1][j] + m1[i][2]*m2[2][j] + m1[i][3]*m2[3][j];
 
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
+    for(int i=0;i<4;i++)
+        for(int j=0;j<4;j++)
             m1[i][j] = temp[i][j];
 }
 
@@ -1047,10 +1078,10 @@ void multiplicar_matriz4_vetor4(Matriz4 m, Matriz4_vetor v)
 {
     Matriz4_vetor temp;
 
-    for (int i = 0; i < 4; i++)
+    for(int i=0;i<4;i++)
         temp[i] = m[i][0]*v[0] + m[i][1]*v[1] + m[i][2]*v[2] + m[i][3]*v[3];
 
-    for (int i = 0; i < 4; i++)
+    for(int i=0;i<4;i++)
         v[i] = temp[i];
 }
 
@@ -1072,9 +1103,6 @@ void rotacao_matriz(Vertice *v)
     m2[2][1] = sin(35.26 * (M_PI/180));
     m2[2][2] = cos(35.26 * (M_PI/180));
 
-
-    multiplicar_matrizes4(m1, m2);
-
     Matriz4 m3;
     criar_matriz_identidade4(m3);
     m3[2][2] = 0;
@@ -1085,9 +1113,9 @@ void rotacao_matriz(Vertice *v)
     ve[2] = v->z;
     ve[3] = 1;
 
-    multiplicar_matriz4_vetor4(m1, ve);
-
-    multiplicar_matriz4_vetor4(m3, ve);
+    multiplicar_matrizes4(m2,m1);
+    multiplicar_matrizes4(m3,m2);
+    multiplicar_matriz4_vetor4(m3,ve);
 
     v->x = ve[0];
     v->y = ve[1];
@@ -1102,29 +1130,189 @@ void criar_arvore(Face faces[])
 
     if(arq==NULL)
     {
-        printf("\nErro ao abrir o arquivo dos polÌgonos.\n");
+        printf("\nErro ao abrir o arquivo dos pol√≠gonos.\n");
         exit(1);
     }
+
     while((fscanf(arq, "%d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d;\n", &faces[i].v[0].x, &faces[i].v[0].y, &faces[i].v[0].z, &faces[i].v[1].x, &faces[i].v[1].y, &faces[i].v[1].z, &faces[i].v[2].x, &faces[i].v[2].y, &faces[i].v[2].z, &faces[i].v[3].x, &faces[i].v[3].y, &faces[i].v[3].z, &faces[i].v[4].x, &faces[i].v[4].y, &faces[i].v[4].z, &faces[i].v[5].x, &faces[i].v[5].y, &faces[i].v[5].z, &faces[i].v[6].x, &faces[i].v[6].y, &faces[i].v[6].z, &faces[i].v[7].x, &faces[i].v[7].y, &faces[i].v[7].z, &faces[i].v[8].x, &faces[i].v[8].y, &faces[i].v[8].z, &faces[i].v[9].x, &faces[i].v[9].y, &faces[i].v[9].z, &faces[i].v[10].x, &faces[i].v[10].y, &faces[i].v[10].z) != EOF))
     {
         i++;
     }
+
+    fclose(arq);
+}
+
+void criar_arvore_colorida(Face faces[])
+{
+    int i = 0;
+    FILE *arq;
+    arq = fopen("arvorecolorida.txt","r");
+
+    if(arq==NULL)
+    {
+        printf("\nErro ao abrir o arquivo dos pol√≠gonos.\n");
+        exit(1);
+    }
+
+    while((fscanf(arq, "%d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d; %d %d %d;\n", &faces[i].v[0].x, &faces[i].v[0].y, &faces[i].v[0].z, &faces[i].v[1].x, &faces[i].v[1].y, &faces[i].v[1].z, &faces[i].v[2].x, &faces[i].v[2].y, &faces[i].v[2].z, &faces[i].v[3].x, &faces[i].v[3].y, &faces[i].v[3].z, &faces[i].v[4].x, &faces[i].v[4].y, &faces[i].v[4].z, &faces[i].v[5].x, &faces[i].v[5].y, &faces[i].v[5].z, &faces[i].v[6].x, &faces[i].v[6].y, &faces[i].v[6].z, &faces[i].v[7].x, &faces[i].v[7].y, &faces[i].v[7].z, &faces[i].v[8].x, &faces[i].v[8].y, &faces[i].v[8].z, &faces[i].v[9].x, &faces[i].v[9].y, &faces[i].v[9].z, &faces[i].v[10].x, &faces[i].v[10].y, &faces[i].v[10].z) != EOF))
+    {
+        i++;
+    }
+
     fclose(arq);
 }
 
 void desenhar_arvore(Face faces[])
 {
-    for (int i = 0; i < 2; i++)
+    SDL_Color cor = {0, 0, 200, 0xFF};
+
+    for(int i=0;i<2;i++)
     {
-        for (int j = 0; j < VERTICES_ARVORE; j++)
+        for(int j=0;j<VERTICES_ARVORE;j++)
         {
-            if (j+1 == VERTICES_ARVORE)
-                desenhar_linha(faces[i].v[j], faces[i].v[0]);
+            if (j+1==VERTICES_ARVORE)
+                desenhar_linha_arvore(faces[i].v[j], faces[i].v[0], cor);
             else
-                desenhar_linha(faces[i].v[j], faces[i].v[j+1]);
+                desenhar_linha_arvore(faces[i].v[j], faces[i].v[j+1], cor);
         }
     }
 
-    for (int i = 0; i < VERTICES_ARVORE; i++)
-        desenhar_linha(faces[0].v[i], faces[1].v[i]);
+    for(int i=0;i<VERTICES_ARVORE;i++)
+        desenhar_linha_arvore(faces[0].v[i], faces[1].v[i], cor);
+}
+
+void desenhar_linha_arvore(Vertice v1, Vertice v2, SDL_Color cor)
+{
+    SDL_SetRenderDrawColor(renderizacao,cor.r,cor.b,cor.g,cor.a);
+    SDL_RenderDrawLine(renderizacao,v1.x,v1.y,v2.x,v2.y);
+}
+
+void pintar_arvore(Face faces[])
+{
+
+    SDL_Color cor2 = {0, 0, 200, 0xFF};
+    arvore_loop(faces[1].v[10],faces[1].v[0],faces[1].v[1],cor2);
+    arvore_loop(faces[1].v[10],faces[1].v[1],faces[1].v[8],cor2);
+    arvore_loop(faces[1].v[10],faces[1].v[8],faces[1].v[9],cor2);
+    arvore_loop(faces[1].v[1],faces[1].v[2],faces[1].v[3],cor2);
+    arvore_loop(faces[1].v[1],faces[1].v[3],faces[1].v[6],cor2);
+    arvore_loop(faces[1].v[1],faces[1].v[6],faces[1].v[7],cor2);
+    arvore_loop(faces[1].v[1],faces[1].v[7],faces[1].v[8],cor2);
+    arvore_loop(faces[1].v[3],faces[1].v[4],faces[1].v[5],cor2);
+    arvore_loop(faces[1].v[3],faces[1].v[5],faces[1].v[6],cor2);
+
+    SDL_Color cor3 = {0, 0, 150, 0xFF};
+    arvore_loop(faces[0].v[10],faces[0].v[0],faces[1].v[0],cor3);
+    arvore_loop(faces[0].v[10],faces[1].v[0],faces[1].v[10],cor3);
+    arvore_loop(faces[0].v[0],faces[1].v[0],faces[1].v[1],cor3);
+    arvore_loop(faces[0].v[0],faces[1].v[1],faces[0].v[1],cor3);
+    arvore_loop(faces[0].v[1],faces[0].v[2],faces[1].v[2],cor3);
+    arvore_loop(faces[0].v[1],faces[1].v[2],faces[1].v[1],cor3);
+    arvore_loop(faces[0].v[3],faces[0].v[2],faces[1].v[2],cor3);
+    arvore_loop(faces[0].v[3],faces[1].v[2],faces[1].v[3],cor3);
+    arvore_loop(faces[0].v[3],faces[0].v[4],faces[1].v[4],cor3);
+    arvore_loop(faces[0].v[3],faces[1].v[4],faces[1].v[3],cor3);
+    arvore_loop(faces[0].v[5],faces[0].v[4],faces[1].v[4],cor3);
+    arvore_loop(faces[0].v[5],faces[1].v[4],faces[1].v[5],cor3);
+    arvore_loop(faces[0].v[6],faces[0].v[5],faces[1].v[5],cor3);
+    arvore_loop(faces[0].v[6],faces[1].v[5],faces[1].v[6],cor3);
+    arvore_loop(faces[0].v[7],faces[0].v[6],faces[1].v[6],cor3);
+    arvore_loop(faces[0].v[7],faces[1].v[6],faces[1].v[7],cor3);
+    arvore_loop(faces[0].v[8],faces[0].v[7],faces[1].v[7],cor3);
+    arvore_loop(faces[0].v[8],faces[1].v[7],faces[1].v[8],cor3);
+    arvore_loop(faces[0].v[9],faces[0].v[8],faces[1].v[8],cor3);
+    arvore_loop(faces[0].v[9],faces[1].v[8],faces[1].v[9],cor3);
+    arvore_loop(faces[0].v[10],faces[0].v[9],faces[1].v[9],cor3);
+    arvore_loop(faces[0].v[10],faces[1].v[9],faces[1].v[10],cor3);
+
+    SDL_Color cor = {0, 0, 100, 0xFF};
+    arvore_loop(faces[0].v[10],faces[0].v[0],faces[0].v[1],cor);
+    arvore_loop(faces[0].v[10],faces[0].v[1],faces[0].v[8],cor);
+    arvore_loop(faces[0].v[10],faces[0].v[8],faces[0].v[9],cor);
+    arvore_loop(faces[0].v[1],faces[0].v[2],faces[0].v[3],cor);
+    arvore_loop(faces[0].v[1],faces[0].v[3],faces[0].v[6],cor);
+    arvore_loop(faces[0].v[1],faces[0].v[6],faces[0].v[7],cor);
+    arvore_loop(faces[0].v[1],faces[0].v[7],faces[0].v[8],cor);
+    arvore_loop(faces[0].v[3],faces[0].v[4],faces[0].v[5],cor);
+    arvore_loop(faces[0].v[3],faces[0].v[5],faces[0].v[6],cor);
+
+}
+
+void arvore_loop(Vertice v1, Vertice v2, Vertice v3, SDL_Color cor)
+{
+    float z_depth;
+
+    int xmin = min(v1.x,v2.x,v3.x);
+    int xmax = max(v1.x,v2.x,v3.x);
+
+    int ymin = min(v1.y,v2.y,v3.y);
+    int ymax = max(v1.y,v2.y,v3.y);
+
+    for(int i=xmin;i<=xmax;i++)
+    {
+        for(int j=ymin;j<=ymax;j++)
+        {
+            if(equacao_reta_arvore(v1,v2,i,j) <= 0 && equacao_reta_arvore(v2,v3,i,j) <= 0
+                && equacao_reta_arvore(v3,v1, i,j) <= 0)
+            {
+                z_depth = calcular_z_depth(v1,v2,v3,i,j);
+
+                if(z_depth < z_buffer[i][j])
+                {
+                    z_buffer[i][j] = z_depth;
+                    SDL_SetRenderDrawColor(renderizacao,cor.r,cor.b,cor.g,cor.a);
+                    SDL_RenderDrawPoint(renderizacao, i, j);
+                }
+            }
+        }
+    }
+}
+
+float calcular_z_depth(Vertice v1, Vertice v2, Vertice v3, int x, int y)
+{
+    Vertice v4;
+    v4.x = x;
+    v4.y = y;
+    v4.z = 0;
+
+    float AreaABC = area_triangulo(v1,v2,v3);
+
+    float u = area_triangulo(v3,v1,v4)/AreaABC;
+    float v = area_triangulo(v1,v2,v4)/AreaABC;
+    float w = area_triangulo(v2,v3,v4)/AreaABC;
+    float z_depth = (u/v1.z) + (v/v2.z) + (w/v3.z);
+
+    return 1/z_depth;
+}
+
+float area_triangulo(Vertice v1, Vertice v2, Vertice v3)
+{
+    Vetor2D A, B, C;
+
+    A.x = v2.x - v1.x;
+    A.y = v2.y - v1.y;
+    A.z = v2.z - v1.z;
+
+    B.x = v3.x - v1.x;
+    B.y = v3.y - v1.y;
+    B.z = v3.z - v1.z;
+
+    C.x = A.y*B.z - A.z*B.y;
+    C.y = A.z*B.x - A.x*B.z;
+    C.z = A.x*B.y - A.y*B.x;
+
+    float area = (sqrt(C.x*C.x + C.y*C.y + C.z*C.z)/2.0);
+
+    return area;
+}
+
+int equacao_reta_arvore(Vertice v1, Vertice v2, int x, int y)
+{
+    //o "produto vetorial" de R2 √© usado para equa√ß√£o da reta que liga dois v√©rtices
+    //de um lado do poligono, √© "basicamente" a equa√ß√£o de um dos lados do poligono
+    int A = v1.y - v2.y;
+    int B = v2.x - v1.x;
+    int C = v1.x*v2.y - v1.y*v2.x;
+
+    return A*x + B*y + C;
 }
