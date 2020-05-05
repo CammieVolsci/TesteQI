@@ -100,7 +100,7 @@ void desenhar_linha_arvore(Vertice v1, Vertice v2, SDL_Color cor);
 int main(int argc, char *args[])
 {
     setlocale(LC_ALL, "Portuguese");
-    printf("\nTrabalho 1 de implementação de Computação Gráfica -\nAluna: Camilla Andrade Pereira\nTeste de QI -\n\n");
+    printf("\nTrabalho 1 de implementação de Computação Gráfica\nTeste de QI -\n\n");
     printf("\nAperte as teclas (em ordem das figuras)\n'a' \t 'b'\n'c' \t 'd'\npara responder.\n\n");
     printf("\nO teste tem 5 perguntas, cada resposta certa vale 100 pontos.\nTotal máximo de 500 pontos.\n");
     teste_qi();
